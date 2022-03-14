@@ -20,3 +20,5 @@ A complete, cross-platform solution to record, convert and stream audio and vide
 Beautiful Soup is a library that makes it easy to scrape information from web pages.
 
 **BeautifulSoup4 Project Page:** https://pypi.org/project/beautifulsoup4/
+## Sources
+I referenced code for youtube_dl and ffmpeg, however I built this bot over a year ago and like an idiot didn't keep track of where the referenced code came from.

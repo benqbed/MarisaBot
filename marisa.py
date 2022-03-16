@@ -2,12 +2,10 @@ import nextcord
 from nextcord.ext import commands
 import os
 import sys
-#import keep_alive
 import youtube_dl
 import asyncio
 import requests
 from bs4 import BeautifulSoup
-#test
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
@@ -92,6 +90,7 @@ async def marigay(ctx):
 async def gaming(ctx):
     await ctx.send(f'moment')
 
+#Sad command
 @client.command(name='marisad', help=': sad mari peepo')
 async def marisad(ctx):
     await ctx.send(file=nextcord.File('marisasad.png'))

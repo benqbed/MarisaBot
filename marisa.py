@@ -34,7 +34,6 @@ class YTDLSource(nextcord.PCMVolumeTransformer):
         super().__init__(source, volume)
 
         self.data = data
-
         self.title = data.get('title')
         self.url = data.get('url')
 
@@ -49,6 +48,18 @@ class YTDLSource(nextcord.PCMVolumeTransformer):
 
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(nextcord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+
+async def getSong(url, *, loop=None, stream=False):
+    loop = loop or asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+    title = data.get('title')
+
+    if 'entries' in data:
+        # take first item from a playlist
+        data = data['entries'][0]
+
+    filename = data['url'] if stream else ytdl.prepare_filename(data)
+    return nextcord.FFmpegPCMAudio(filename, **ffmpeg_options)
 
 #Create bot instance
 client = commands.Bot(command_prefix='>', intents = nextcord.Intents.all())
@@ -157,7 +168,7 @@ async def play(ctx, url = ""):
 
         #Play song user requested
         await ctx.send(f'Please wait while I load your song!')
-        player = await YTDLSource.from_url(queue[0], loop=client.loop)
+        player = await getSong(queue[0], loop=client.loop)
         del(queue[0])
 
         channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
@@ -178,7 +189,7 @@ async def play(ctx, url = ""):
             display_queue.append(url)
             await ctx.send(f'Please wait while I load your song!')
             print("creating player")
-            player = await YTDLSource.from_url(queue[0], loop=client.loop)
+            player = await getSong(queue[0], loop=client.loop)
             print("created player")
             del(queue[0])
             del(display_queue[0])
@@ -235,7 +246,7 @@ async def skip(ctx):
     voice_channel.stop()
 
     async with ctx.typing():
-        player = await YTDLSource.from_url(queue[0], loop=client.loop)
+        player = await getSong(queue[0], loop=client.loop)
         del(queue[0])
 
         await ctx.send(f'Please wait while I load your song!')
@@ -302,5 +313,4 @@ async def channel_playing():
             await asyncio.sleep(5)
             #pass
 #Run bot
-#keep_alive.keep_alive()
 asyncio.run(client.run(os.environ.get('MARISA_AUTH')))

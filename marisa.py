@@ -29,9 +29,8 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
-class YTDLSource(nextcord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=0.5):
-        super().__init__(source, volume)
+class YTDLSource():
+    def __init__(self, source, *data):
 
         self.data = data
         self.title = data.get('title')

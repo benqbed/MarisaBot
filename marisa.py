@@ -30,7 +30,7 @@ ffmpeg_options = {
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
 class YTDLSource():
-    def __init__(self, source, *data):
+    def __init__(self, source, *, data):
 
         self.data = data
         self.title = data.get('title')
@@ -51,11 +51,6 @@ class YTDLSource():
 async def getSong(url, *, loop=None, stream=False):
     loop = loop or asyncio.get_event_loop()
     data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-    title = data.get('title')
-
-    if 'entries' in data:
-        # take first item from a playlist
-        data = data['entries'][0]
 
     filename = data['url'] if stream else ytdl.prepare_filename(data)
     return nextcord.FFmpegPCMAudio(filename, **ffmpeg_options)
@@ -167,7 +162,7 @@ async def play(ctx, url = ""):
 
         #Play song user requested
         await ctx.send(f'Please wait while I load your song!')
-        player = await getSong(queue[0], loop=client.loop)
+        player = await YTDLSource.from_url(queue[0], loop=client.loop)
         del(queue[0])
 
         channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
@@ -188,7 +183,7 @@ async def play(ctx, url = ""):
             display_queue.append(url)
             await ctx.send(f'Please wait while I load your song!')
             print("creating player")
-            player = await getSong(queue[0], loop=client.loop)
+            player = await YTDLSource.from_url(queue[0], loop=client.loop)
             print("created player")
             del(queue[0])
             del(display_queue[0])
@@ -245,12 +240,12 @@ async def skip(ctx):
     voice_channel.stop()
 
     async with ctx.typing():
-        player = await getSong(queue[0], loop=client.loop)
+        player = await YTDLSource.from_url(queue[0], loop=client.loop)
         del(queue[0])
 
         await ctx.send(f'Please wait while I load your song!')
         voice_channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
-        await ctx.send(f'Now playing: {player.title}')
+        await ctx.send(f'Now playing: {player}')
 
 @client.command(name='restart', help=': If I start going insane and not working, use this to restart me!')
 async def restart(ctx):

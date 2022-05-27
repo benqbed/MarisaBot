@@ -29,8 +29,9 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
-class YTDLSource():
-    def __init__(self, source, *, data):
+class YTDLSource(nextcord.PCMVolumeTransformer):
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
 
         self.data = data
         self.title = data.get('title')
@@ -47,13 +48,6 @@ class YTDLSource():
 
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(nextcord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
-
-async def getSong(url, *, loop=None, stream=False):
-    loop = loop or asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-
-    filename = data['url'] if stream else ytdl.prepare_filename(data)
-    return nextcord.FFmpegPCMAudio(filename, **ffmpeg_options)
 
 #Create bot instance
 client = commands.Bot(command_prefix='>', intents = nextcord.Intents.all())
@@ -245,7 +239,7 @@ async def skip(ctx):
 
         await ctx.send(f'Please wait while I load your song!')
         voice_channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
-        await ctx.send(f'Now playing: {player}')
+        await ctx.send(f'Now playing: {player.title}')
 
 @client.command(name='restart', help=': If I start going insane and not working, use this to restart me!')
 async def restart(ctx):
@@ -307,4 +301,5 @@ async def channel_playing():
             await asyncio.sleep(5)
             #pass
 #Run bot
+#keep_alive.keep_alive()
 asyncio.run(client.run(os.environ.get('MARISA_AUTH')))

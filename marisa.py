@@ -61,7 +61,7 @@ async def getSong(url):
             await getSong(url)
             return
     
-    filename = ytSearch.streams.desc().first().download('Files/')
+    filename = ytSearch.streams.desc().first().download('Songs/')
     playAndTitle = music(nextcord.FFmpegPCMAudio(source = filename, options= '-vn'), ytSearch.title)
     return playAndTitle
 
@@ -92,7 +92,7 @@ async def hello(ctx):
 #Gay command
 @client.command(name='marigay', help=': i am now gay')
 async def marigay(ctx):
-    await ctx.send(file=nextcord.File('marisagay.jpg'))
+    await ctx.send(file=nextcord.File('Images/marisagay.jpg'))
     await ctx.send('Yeah Reimu is pretty hot')
 
 #Gaming command
@@ -103,7 +103,7 @@ async def gaming(ctx):
 #Sad command
 @client.command(name='marisad', help=': sad mari peepo')
 async def marisad(ctx):
-    await ctx.send(file=nextcord.File('marisasad.png'))
+    await ctx.send(file=nextcord.File('Images/marisasad.png'))
     await ctx.send('cris in sans libre')
 
 #VC Join command

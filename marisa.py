@@ -136,15 +136,8 @@ async def pause(ctx):
     voice_channel = ctx.message.guild.voice_client
     voice_channel.pause()
 
-#Resume music command
-@client.command(name='resume', help=f': Continues to play the music obviously.')
-async def resume(ctx):
-    #server = ctx.message.guild
-    voice_channel = ctx.message.guild.voice_client
-    voice_channel.resume()
-
 #Play music command
-@client.command(name='play', help=f': Use me to play music ;)')
+@client.command(name='play', help=f': Use me to play music or resume paused music!')
 async def play(ctx, *, url = None):
     #Check if bot is in a voice channel and if not, join it
     #or if user is not in a voice channel, tell them so
@@ -160,6 +153,7 @@ async def play(ctx, *, url = None):
         voice_channel.resume()
         return 0
     
+    #Get song from url and play it if no song is playing, otherwise add it to queue
     player = await getSong(url)
     if voice_channel.is_playing():
         await ctx.send(f'Adding {player.title} to queue')
@@ -203,6 +197,10 @@ async def rm(ctx, number):
 async def skip(ctx):
     voice_channel = ctx.message.guild.voice_client
     voice_channel.stop()
+
+    if len(queue) == 0:
+        await ctx.send('No more songs in queue, so I\'ll stop playing the current song!')
+        return 0
 
     async with ctx.typing():
         global queue

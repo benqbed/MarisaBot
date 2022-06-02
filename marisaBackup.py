@@ -1,16 +1,17 @@
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord.ext import commands
 import os
-import keep_alive
+import sys
 import youtube_dl
 import asyncio
-import time
+import requests
+from bs4 import BeautifulSoup
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
-    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'outtmpl': 'Files/%(title)s.%(ext)s', #-%(title)s.%(ext)s
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
@@ -28,12 +29,11 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
-class YTDLSource(discord.PCMVolumeTransformer):
+class YTDLSource(nextcord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
 
         self.data = data
-
         self.title = data.get('title')
         self.url = data.get('url')
 
@@ -47,10 +47,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = data['entries'][0]
 
         filename = data['url'] if stream else ytdl.prepare_filename(data)
-        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+        return cls(nextcord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 #Create bot instance
-client = commands.Bot(command_prefix='>', intents = discord.Intents.all())
+client = commands.Bot(command_prefix='>', intents = nextcord.Intents.all())
 
 #Define global variables
 display_queue = []
@@ -58,13 +58,13 @@ queue = []
 voice_channel = None
 count = 0
 gctx = None
+is_func_running = False
 
 #Print a message to console to show bot is running and start loop for autoplay
 @client.event
 async def on_ready():
     print('Logged in as {0.user}'.format(client))
     await channel_playing()
-
 
 #Ping command
 @client.command(name='ping', help=': This command is a latency ping owo')
@@ -81,7 +81,7 @@ async def hello(ctx):
 #Gay command
 @client.command(name='marigay', help=': i am now gay')
 async def marigay(ctx):
-    await ctx.send(file=discord.File('marisagay.jpg'))
+    await ctx.send(file=nextcord.File('marisagay.jpg'))
     await ctx.send('Yeah Reimu is pretty hot')
 
 #Gaming command
@@ -89,39 +89,45 @@ async def marigay(ctx):
 async def gaming(ctx):
     await ctx.send(f'moment')
 
+#Sad command
 @client.command(name='marisad', help=': sad mari peepo')
 async def marisad(ctx):
-    await ctx.send(file=discord.File('marisasad.png'))
+    await ctx.send(file=nextcord.File('marisasad.png'))
     await ctx.send('cris in sans libre')
 
 #VC Join command
 @client.command(name='join', help=': Bring me to your current voice channel!')
 async def join(ctx):
+    global voice_channel
     if not await check_ifusr_inchannel(ctx):
         return
     else:
         channel = await check_ifusr_inchannel(ctx)
 
     await channel.connect()
+    voice_channel = channel
 
 #VC Leave command
 @client.command(name='leave', help=': This tells me to leave the voice channel :(')
 async def leave(ctx):
     global queue
+    global voice_channel    
     voice_client = ctx.message.guild.voice_client
-    await voice_client.disconnect()
-    voice_channel = ctx.message.guild.voice_client
-    queue.clear()
+    if voice_client != None:
+        await voice_client.disconnect()
+        voice_channel = None
+        queue.clear()
 
 #Play music command
 @client.command(name='play', help=f': Use me to play music ;)')
 async def play(ctx, url = ""):
-
     #Include global variables(idk if this is neccesary)
     global queue
     global voice_channel
     global count
     global gctx
+    global is_func_running
+    is_func_running = True
     gctx = ctx
 
     #sets voice_channel to the voice channel the bot is connected to
@@ -129,9 +135,7 @@ async def play(ctx, url = ""):
 
     #Remove empty elements from queue.
     #These occur due to the default arg of url
-    print("enter if else queue")
-    print(queue)
-    fix_queue()
+    await fix_queue()
 
     #If bot is not connected to vc
     if voice_channel == None:
@@ -148,6 +152,7 @@ async def play(ctx, url = ""):
 
         #variable for channel the bot is connected to
         channel = ctx.message.guild.voice_client
+        voice_channel = ctx.message.guild.voice_client
 
         #Play song user requested
         await ctx.send(f'Please wait while I load your song!')
@@ -156,22 +161,30 @@ async def play(ctx, url = ""):
 
         channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
         await ctx.send(f'Now playing: {player.title}')
+        is_func_running = False
     #If bot is connected to vc
     else:
         #If bot is already playing a song, add the song requested to queue
         if voice_channel.is_playing() or voice_channel.is_paused():
             queue.append(url)
-            await ctx.send(f'`{url}` added to queue!')
+            display_queue.append(await get_title(url))
+            await ctx.send(f'`{await get_title(url)}` added to queue!')
+            is_func_running = False
 
         #Play next song in queue
         else:
             queue.append(url)
+            display_queue.append(url)
             await ctx.send(f'Please wait while I load your song!')
+            print("creating player")
             player = await YTDLSource.from_url(queue[0], loop=client.loop)
+            print("created player")
             del(queue[0])
+            del(display_queue[0])
 
             voice_channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
             await ctx.send(f'Now playing: {player.title}')
+            is_func_running = False
 
 #Pause music command
 @client.command(name='pause', help=f': Pauses the music, what did you think it did?')
@@ -186,7 +199,6 @@ async def pause(ctx):
 async def resume(ctx):
     server = ctx.message.guild
     voice_channel = server.voice_client
-
     voice_channel.resume()
 
 #Remove from queue command
@@ -208,9 +220,9 @@ async def rm(ctx, number):
 #See queue command
 @client.command(name='cq', help=': This shows the songs currently in queue')
 async def cq(ctx):
-    global queue
+    global display_queue
     await ctx.send('This is the current queue:\n')
-    for val in queue:
+    for val in display_queue:
         await ctx.send(f'`{val}`\n')
 
 #Skip command
@@ -229,14 +241,30 @@ async def skip(ctx):
         voice_channel.play(player, after=lambda e: print('Player error: %s' %e) if e else None)
         await ctx.send(f'Now playing: {player.title}')
 
+@client.command(name='restart', help=': If I start going insane and not working, use this to restart me!')
+async def restart(ctx):
+    await leave(ctx)
+    await ctx.send('Restarting... Please wait about 5 seconds before entering another command.')
+    os.execv(sys.executable, ['python'] + sys.argv)
+
+async def get_title(url):
+    r = requests.get(url)
+    s = BeautifulSoup(r.text, 'html.parser')
+    title = s.title.string
+    title = title.removesuffix(' - YouTube')
+    return title
 
 async def fix_queue():
     global queue
-    if (not queue):
+    global display_queue
+    if not queue:
         return
     else:
-        while queue[0] == '':
+        while queue[0] == "":
             del(queue[0])
+            del(display_queue[0])
+            if not queue:
+                return
 
 #Function to check if user is in a voice channel
 async def check_ifusr_inchannel(ctx):
@@ -254,36 +282,24 @@ async def channel_playing():
     global gctx
     global queue
     while True:
-        #Debug messages
-        # print(voice_channel)
-        # print(voice_channel == None)
-        # print("\n")
+        global voice_channel
         if not (voice_channel == None):
-            #Debug messages
-            # print(voice_channel.is_playing() == False)
-            # print(voice_channel.is_paused() == False)
-            # print(not (not queue))
-            #NOT WORKING: print(not queue[0] == '')
-            if voice_channel.is_playing() == False and voice_channel.is_paused() == False and (not (not queue)) and (not queue[0] == ''):
-                print("Entered autoplay function\n")
-                await play(gctx)
+            try:
+                if voice_channel.is_playing() == False and voice_channel.is_paused() == False and (not (not queue)) and (not queue[0] == '') and is_func_running == False:
+                    print("Entered autoplay function\n")
+                    await play(gctx)
+                    await asyncio.sleep(5)
+                else:
+                    print("Conditions for autoplay not met. Waiting 5 seconds.\n")#print("Conditions for autoplay not met. Conditions:\nVoice Channel playing: " + voice_channel.is_playing() + "\nVoice Channel paused: " + voice_channel.is_paused() + "\n ")
+                    await asyncio.sleep(5)
+                    #pass
+            except:
+                print("Player still not initilized, conditions for autoplay not met.\n")
                 await asyncio.sleep(5)
-            else:
-                print("Conditions for autoplay not met. Waiting 5 seconds.\n")#print("Conditions for autoplay not met. Conditions:\nVoice Channel playing: " + voice_channel.is_playing() + "\nVoice Channel paused: " + voice_channel.is_paused() + "\n ")
-                await asyncio.sleep(5)
-                pass
         else:
             print("Bot not connected to voice channel. Waiting 5 seconds.\n")#print("Conditions for autoplay not met. Conditions:\nVoice Channel playing: " + voice_channel.is_playing() + "\nVoice Channel paused: " + voice_channel.is_paused() + "\n ")
             await asyncio.sleep(5)
-            pass
-
-# async def display_queue(index):
-#     print("Enter display queue func")
-#     import pdb; pdb. set_trace()
-#     index = int(index)
-#     queue_player = await YTDLSource.from_url(queue[index], loop=client.loop)
-#     return player.title
-
+            #pass
 #Run bot
-keep_alive.keep_alive()
+#keep_alive.keep_alive()
 asyncio.run(client.run(os.environ.get('MARISA_AUTH')))

@@ -68,7 +68,7 @@ async def getSong(url):
 #Function to play a song
 async def playSong(ctx, voice_channel, player):
     voice_channel.play(player.player, after=lambda e: print('Player error: %s' %e) if e else None)
-    await ctx.send(f'Now playing: {player.title}')
+    await ctx.send(f'Now playing: `{player.title}`')
 
 ########################
 ##### Bot Commands #####
@@ -156,7 +156,7 @@ async def play(ctx, *, url = None):
     #Get song from url and play it if no song is playing, otherwise add it to queue
     player = await getSong(url)
     if voice_channel.is_playing():
-        await ctx.send(f'Adding {player.title} to queue')
+        await ctx.send(f'Adding `{player.title}` to queue')
         queue.append(player)
         if autoPlayRunning == False:
             autoPlayRunning = True
@@ -195,6 +195,7 @@ async def rm(ctx, number):
 #Skip command
 @client.command(name='skip', help=': This skips to the next song in queue!')
 async def skip(ctx):
+    global queue
     voice_channel = ctx.message.guild.voice_client
     voice_channel.stop()
 
@@ -203,12 +204,11 @@ async def skip(ctx):
         return 0
 
     async with ctx.typing():
-        global queue
         player = queue[0]
         queue.pop(0)
 
         voice_channel.play(player.player, after=lambda e: print('Player error: %s' %e) if e else None)
-        await ctx.send(f'Now playing: {player.title}')
+        await ctx.send(f'Now playing: `{player.title}`')
 
 
 

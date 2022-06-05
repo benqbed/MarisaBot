@@ -61,7 +61,7 @@ async def getSong(url):
             await getSong(url)
             return
     
-    filename = ytSearch.streams.desc().first().download('Songs/')
+    filename = ytSearch.streams.filter(file_extension='mp4').desc().first().download('Songs/')
     playAndTitle = music(nextcord.FFmpegPCMAudio(source = filename, options= '-vn'), ytSearch.title)
     return playAndTitle
 
@@ -105,6 +105,26 @@ async def gaming(ctx):
 async def marisad(ctx):
     await ctx.send(file=nextcord.File('Images\marisasad.png'))
     await ctx.send('cris in sans libre')
+
+#Bone command
+@client.command(name='bone', help=': bone your friends')
+async def bone(ctx):
+    #Check if bot is in a voice channel and if not, join it
+    #or if user is not in a voice channel, tell them so
+    voice_channel = ctx.message.guild.voice_client
+    if not voice_channel:
+        voice_channel = await join(ctx)
+    if not voice_channel:
+        return 0
+
+    voice_channel.stop()
+    player = music(nextcord.FFmpegPCMAudio(source = 'Songs\BAD TO THE BONE OPENING RIFF!!!.mp4', options= '-vn'), 'GET BONED')
+    voice_channel.play(player.player, after=lambda e: print('Player error: %s' %e) if e else None)
+    await ctx.send('GET BONED')
+    await asyncio.sleep(2)
+
+    if len(queue) == 0:
+        await voice_channel.disconnect()    
 
 #VC Join command
 @client.command(name='join', help=': Bring me to your current voice channel!')
@@ -209,7 +229,6 @@ async def skip(ctx):
 
         voice_channel.play(player.player, after=lambda e: print('Player error: %s' %e) if e else None)
         await ctx.send(f'Now playing: `{player.title}`')
-
 
 
 asyncio.run(client.run(os.environ.get('MARISA_AUTH')))
